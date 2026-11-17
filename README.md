@@ -1,264 +1,45 @@
-# LoongArch CPU Design
+# 小学期 CPU 设计与应用系统
 
-本仓库基于 Vivado 2019.2。当前主线独立 CPU 工程是 `final_cpu/`，`cdp_ede_pipeline/` 继续保留为后续参考和验证环境。
+计算机组成原理课程实践：从单周期数据通路、五级流水线到 LA32R CPU 演示系统，保留 RTL、可编辑图纸、控制信号表及配套软件工具。
 
-## 稳定演示版本（2026-07-14）
+这是**三人合作项目的个人整理仓库**，源自 [FFspiky/minicpu-basic](https://github.com/FFspiky/minicpu-basic)。杨博清（feng0sp）主要参与**数据通路图设计**。CPU、外设与工具链为团队工程成果，具体来源和整理范围见[项目说明](docs/TEAM_PROJECT.md)。
 
-当前稳定版本位于`codex/nand-debug-20260714`分支。Windows电脑克隆仓库后，可在
-仓库根目录双击`LA32-Studio.cmd`启动；未安装Python的电脑应下载GitHub Release
-中的`LA32-Studio-Portable-*.zip`。稳定bitstream也作为Release附件提供，不提交
-Vivado生成目录或`.bit`文件到Git历史。
+## 从哪里开始
 
-本版本已完成开发板验收：LCD保留原CPU调试面板且只有一个`OUT`和一个`IN`，
-F12可返回菜单；赛车镜像经过完全断电、重新下载bitstream后仍保留在NAND，目录
-元数据和整镜像CRC校验均通过。详细上传边界和发布步骤见`GITHUB_RELEASE.md`。
+| 想了解什么 | 入口 |
+| --- | --- |
+| 数据通路与部件连接 | [图纸阅读指南](draw.io/README.md)：5 份 drawio 文件、36 个页面及两份控制信号表 |
+| 单周期与流水线的实现 | [单周期环境](cdp_ede_local-master/)、[流水线环境](cdp_ede_pipeline/) |
+| CPU、UART、NAND 与程序装载 | [final_cpu 系统说明](final_cpu/README.md) |
+| 汇编、镜像生成与网页工具 | [la32asm / LA32 Studio](final_cpu/tools/la32asm/README.md) |
+| 本次实际检查结果 | [验证记录](docs/VALIDATION.md) |
 
-## LA32 Studio（2026-07-31）
+建议先看 EXP6 的总图，沿“取指 → 译码 → 执行 → 访存 → 写回”理解数据流，再看 EXP16 的分模块图和对应 RTL。图纸索引保留原始页面名称，便于在 diagrams.net 中查找。
 
-在仓库根目录双击`LA32-Studio.cmd`即可启动网页工具。当前版本支持：
+## 项目内容
 
-- C语言与LA32R汇编双模式编辑、停止输入后自动构建；
-- 选择本地`.S`、`.s`、`.asm`或`.txt`文件，直接完成自研汇编器构建，不要求手动复制源码；
-- 下载当前构建生成的LA32IMG、BIN、MIF、COE、机器码清单和构建报告；
-- 构建并运行C程序、构建赛车和流水线EXP16预设；
-- 通过UART临时运行镜像；
-- 查看开发板状态，并安装、列出、校验、删除或格式化NAND程序槽。
+- 单周期 CPU 与五级流水线 CPU 教学工程，以及数据通路、内部部件和控制信号资料。
+- `final_cpu`：流水线 LA32R CPU、统一 RAM、Boot Monitor，以及 UART、NAND、VGA 等外设与演示程序。
+- `la32asm` 与 LA32 Studio：汇编编码、镜像打包、网页编辑构建、串口下载和 NAND 程序槽管理。
 
-汇编文件构建不需要WSL；C语言和赛车构建使用LA32R GCC，需要Windows已启用WSL。
-单文件汇编应当能够独立完成汇编；依赖多个源码文件或工程布局时，请使用仓库内的
-EXP16等预设构建入口。开发板操作需要USB转RS-232适配器和已经下载稳定bitstream的
-开发板。详细用法见`final_cpu/tools/la32asm/README.md`。
+上述为仓库包含的团队实现范围；个人贡献以项目说明中的记录为准。
 
-- `final_cpu/`：EXP23 流水线 CPU + BRAM SoC + LCD 工程入口，后续外设和小游戏扩展从这里继续。
-- `cdp_ede_local-master/`：单周期 CPU 环境
-- `cdp_ede_pipeline/`：五级流水线 CPU 环境
+## 启动软件工具
 
-`final_cpu/` 是独立清理版工程，不包含 trace 对拍环境、gettrace 或功能测试编译目录；EXP23 镜像直接保存在 `final_cpu/mem/exp23/`。
-
-两个 CDP/EDE CPU 环境内部仍保持同样的工程结构：
-
-- `mycpu_env/gettrace/`：生成 `golden_trace.txt`
-- `mycpu_env/soc_verify/soc_dram/run_vivado/project/`：trace 对拍 Vivado 工程
-- `mycpu_env/soc_verify/soc_dram/run_vivado/project_lcd/`：LCD 上板 Vivado 工程
-
-CPU 类型现在由目录决定，不再通过 `USE_PIPELINE` 或 `CPU_USE_PIPELINE` 参数切换。
-
-## 环境要求
-
-- Windows 11
-- WSL2 + Ubuntu 24.04
-- Vivado 2019.2
-- LA32R 交叉编译工具链
-
-本机 Vivado 默认路径：
-
-```text
-D:\Vivado\Vivado\2019.2\bin\vivado.bat
-```
-
-## 生成功能测试程序
-
-默认生成 EXP6 到单周期环境：
+Windows 安装 Git 和 Python 3.10+ 后，在 PowerShell 执行：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash /mnt/d/CPU_DESIGN/scripts/build_func_exp6.sh
+git -c core.longpaths=true clone https://github.com/feng0sp/minicpu-basic.git
+cd .\minicpu-basic
+.\LA32-Studio.cmd
 ```
 
-指定实验号和环境目录：
+首次运行可能需要联网安装 Python 依赖，浏览器默认访问 `http://127.0.0.1:8765`。独立汇编文件的构建不需要 WSL；C 程序及部分预设构建还需要 WSL 和 LA32R GCC，详见工具说明。
 
-```powershell
-wsl -d Ubuntu-24.04 -- bash /mnt/d/CPU_DESIGN/scripts/build_func_exp6.sh 6 cdp_ede_local-master
-wsl -d Ubuntu-24.04 -- bash /mnt/d/CPU_DESIGN/scripts/build_func_exp6.sh 6 cdp_ede_pipeline
-wsl -d Ubuntu-24.04 -- bash /mnt/d/CPU_DESIGN/scripts/build_func_exp6.sh 8 cdp_ede_pipeline
-wsl -d Ubuntu-24.04 -- bash /mnt/d/CPU_DESIGN/scripts/build_func_exp6.sh 9 cdp_ede_pipeline
-```
+上板使用 Vivado 2019.2、适配开发板及串口连接。已有稳定 bitstream 和便携工具包可在[团队 stable-20260716 Release](https://github.com/FFspiky/minicpu-basic/releases/tag/stable-20260716) 获取；该 Release 早于这里同步的源码提交，不能视为当前源码的重新构建结果。大体积便携包不重复提交到本仓库。
 
-生成结果位于对应环境的：
+## 版本与资料
 
-```text
-mycpu_env/func/obj/
-```
+本次同步团队 `tree` 分支的 `b03bdf82d5f9bf687993f56d3238041942b4828a`，保留原提交历史，在个人 fork 中补充导航、图纸索引和验证记录。团队原始工程说明保存在[原始 README](docs/TEAM_ORIGINAL_README.md)；其中固定盘符、旧分支和历史验收记录需结合当时环境理解。
 
-## 单周期 CPU
-
-单周期环境路径：
-
-```text
-D:\CPU_DESIGN\cdp_ede_local-master
-```
-
-生成 golden trace：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\gettrace\run_gettrace_sim.tcl'
-```
-
-跑 trace 对拍：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_dram\run_vivado\run_soc_dram_sim.tcl'
-```
-
-trace GUI 工程：
-
-```text
-D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_dram\run_vivado\project\loongson.xpr
-```
-
-上板工程生成脚本：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_dram\run_vivado\create_board_project.tcl'
-```
-
-上板 GUI 工程：
-
-```text
-D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_dram\run_vivado\project_lcd\loongson_lcd.xpr
-```
-
-完整生成 bitstream 的脚本：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_dram\run_vivado\run_soc_dram_lcd_impl.tcl'
-```
-
-## 五级流水线 CPU
-
-流水线环境路径：
-
-```text
-D:\CPU_DESIGN\cdp_ede_pipeline
-```
-
-生成 golden trace：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\gettrace\run_gettrace_sim.tcl'
-```
-
-跑 trace 对拍：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_dram\run_vivado\run_soc_dram_sim.tcl'
-```
-
-trace GUI 工程：
-
-```text
-D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_dram\run_vivado\project\loongson.xpr
-```
-
-上板工程生成脚本：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_dram\run_vivado\create_board_project.tcl'
-```
-
-上板 GUI 工程：
-
-```text
-D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_dram\run_vivado\project_lcd\loongson_lcd.xpr
-```
-
-完整生成 bitstream 的脚本：
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_dram\run_vivado\run_soc_dram_lcd_impl.tcl'
-```
-
-## 当前状态
-
-- 单周期环境只保留单周期 `mycpu_top`。
-- 流水线环境只保留流水线 `mycpu_top` + `mycpu_pipeline`。
-- 两个环境的 trace 工程和上板工程互相独立，均由各自目录下的脚本生成。
-- `final_cpu/` 替代旧 `minicpu_basic/` 作为后续主线 CPU 工程。
-- `cdp_ede_pipeline/` 保持独立，不作为 `final_cpu/` 的工程内部依赖。
-- `project/`、`project_lcd/` 和 Vivado/IP 中间产物不纳入版本管理。
-
-## Single-cycle board verification notes
-
-- `cdp_ede_local-master/` is the single-cycle CPU environment.
-- Single-cycle board top now uses BRAM: `D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\rtl\soc_lite_lcd_top.v`.
-- `soc_dram` is kept as a compatibility/reference environment.
-- Single-cycle acceptance uses EXP6. EXP8/EXP9 are reserved for the pipeline no-NOP hazard validation path.
-- Single-cycle BRAM trace script:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_sim.tcl'
-```
-
-- Single-cycle BRAM board project script:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\create_board_project.tcl'
-```
-
-- Single-cycle BRAM LCD smoke simulation:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_sim.tcl'
-```
-
-- Single-cycle BRAM bitstream script, to be run manually when needed:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_impl.tcl'
-```
-
-- If the EXP program is changed before board generation, run the clean implementation script once:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_clean_impl.tcl'
-```
-
-- STEP runs until one instruction commits; `ld.w` may use one extra BRAM wait cycle.
-- RUN stops when `END_PC = 32'h1c000100` commits.
-- Timing reports are written to `D:\CPU_DESIGN\cdp_ede_local-master\mycpu_env\soc_verify\soc_bram\run_vivado\reports`.
-- LCD pages: `WBPC`, `INST`, `Rxx`, `WRPC`, `STEP`, `CYCL`, `IFPC`, `CMTPC`, `CMTI`, `PVLD`, `HZD`, `NUM`, `MODE`, `RUN`, `DONE`, `SW`.
-- For single-cycle BRAM, `PVLD[1:0]` shows `{load-wait, execute-valid}` and `HZD[0]` shows `load-wait`.
-
-## Pipeline board verification notes
-
-- `cdp_ede_local-master/` is the single-cycle CPU environment.
-- `cdp_ede_pipeline/` is the five-stage pipeline CPU environment.
-- CPU type is selected by directory, not by `USE_PIPELINE` or `CPU_USE_PIPELINE`.
-- Pipeline board top now uses BRAM: `D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\rtl\soc_lite_lcd_top.v`.
-- `soc_dram` is kept only as a compatibility/reference environment.
-- Pipeline BRAM trace script:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_sim.tcl'
-```
-
-- Pipeline BRAM board project script:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\create_board_project.tcl'
-```
-
-- Pipeline BRAM LCD smoke simulation:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_sim.tcl'
-```
-
-- Pipeline BRAM bitstream script, to be run manually when needed:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_impl.tcl'
-```
-
-- If the EXP program is changed before board generation, run the clean implementation script once:
-
-```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch -source 'D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\run_soc_bram_lcd_clean_impl.tcl'
-```
-
-- In board single-step mode, STEP runs the CPU until one instruction commits.
-- In RUN mode, DONE is asserted when `END_PC = 32'h1c000100` commits.
-- `END_PC` remains `32'h1c000100` by default; the LCD smoke test may override it to a short-running commit PC.
-- The BRAM implementation script writes timing reports to `D:\CPU_DESIGN\cdp_ede_pipeline\mycpu_env\soc_verify\soc_bram\run_vivado\reports`.
-- LCD pages: `WBPC`, `INST`, `Rxx`, `WRPC`, `STEP`, `CYCL`, `IFPC`, `CMTPC`, `CMTI`, `PVLD`, `HZD`, `NUM`, `MODE`, `RUN`, `DONE`, `SW`.
-- `PVLD[3:0]` shows `{IFID, IDEX, EXMEM, MEMWB}`.
-- `HZD[2:0]` shows `{load-use stall, branch taken/flush, branch-in-EX}`.
+本次本地软件测试通过 28 项，另有 1 项 GNU 赛车差分测试因缺少参考二进制而跳过；没有重新进行 Vivado 综合、时序分析或开发板验收。复现命令和检查范围见[验证记录](docs/VALIDATION.md)。
