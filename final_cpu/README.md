@@ -12,7 +12,7 @@
 - LCD：8080 并口硬件渲染与调试显示
 - VGA：赛车画面、当前分数和排行榜
 - 输入：矩阵按键和 PS/2 键盘
-- 最新上板实现时序：`WNS = +0.247 ns`，`TNS = 0`
+- 原上板记录中的时序：`WNS = +0.247 ns`，`TNS = 0`。对应报告尚未纳入仓库，本次整理未复跑，详见 [验证说明](../docs/VERIFICATION.md)。
 
 ## 目录结构
 
@@ -90,7 +90,8 @@ CPU RTL 位于 `rtl/cpu/`，主要模块包括：
 在 WSL 中进入游戏目录并构建：
 
 ```bash
-cd /mnt/d/CPU_DESIGN/final_cpu/sw/game
+# 从 Linux / WSL 中实际克隆位置的仓库根目录执行
+cd final_cpu/sw/game
 make install
 ```
 
@@ -110,19 +111,28 @@ make clean
 
 ## Vivado 工程
 
+以下 PowerShell 命令从仓库根目录执行。先在已配置 Vivado 环境的 PowerShell 中设置工具路径；若 PATH 未配置，请将 `$vivado` 指向实际安装的 `vivado.bat`。
+
+```powershell
+$vivado = (Get-Command vivado.bat -ErrorAction Stop).Source
+```
+
+环境准备与分步操作见 [运行说明](../docs/GETTING_STARTED.md)。
+
+
 工程使用 Vivado 2019.2，目标器件为 `xc7a200tfbg676-1`，综合顶层为 `soc_lite_lcd_top`。
 
 创建或同步 GUI 工程：
 
 ```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch `
+& $vivado -mode batch `
   -source '.\final_cpu\run_vivado\create_board_project.tcl'
 ```
 
 刷新源文件、恢复顶层并重置综合/实现运行：
 
 ```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch `
+& $vivado -mode batch `
   -source '.\final_cpu\run_vivado\refresh_board_project.tcl'
 ```
 
@@ -137,7 +147,7 @@ final_cpu/run_vivado/project_lcd/final_cpu_lcd.xpr
 批处理生成 bitstream：
 
 ```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch `
+& $vivado -mode batch `
   -source '.\final_cpu\run_vivado\run_lcd_impl.tcl'
 ```
 
@@ -146,7 +156,7 @@ final_cpu/run_vivado/project_lcd/final_cpu_lcd.xpr
 运行 LCD、VGA 和游戏外设单元仿真：
 
 ```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch `
+& $vivado -mode batch `
   -source '.\final_cpu\run_vivado\run_lcd_unit_sim.tcl'
 ```
 
@@ -159,7 +169,7 @@ final_cpu/run_vivado/project_lcd/final_cpu_lcd.xpr
 运行完整 SoC、CPU 游戏启动和 LCD 调试页冒烟仿真：
 
 ```powershell
-& 'D:\Vivado\Vivado\2019.2\bin\vivado.bat' -mode batch `
+& $vivado -mode batch `
   -source '.\final_cpu\run_vivado\run_lcd_sim.tcl'
 ```
 
